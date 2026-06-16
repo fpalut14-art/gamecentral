@@ -30,14 +30,48 @@ type AdItem = {
   status?: string;
 };
 
+const ecosystems = [
+  {
+    icon: "🖥️",
+    title: "Sistemler",
+    value: "SİSTEMLER",
+    children: ["DONANIMLAR", "PC KASA", "MONSTER SERİSİ"],
+  },
+  {
+    icon: "🎮",
+    title: "Oyun Dünyası",
+    value: "OYUN DÜNYASI",
+    children: ["KONSOLLAR", "PLAYSTATION", "XBOX", "NINTENDO"],
+  },
+  {
+    icon: "⌨️",
+    title: "Ekipmanlar",
+    value: "EKİPMANLAR",
+    children: ["FARE", "KLAVYE", "KULAKLIK"],
+  },
+  {
+    icon: "🪑",
+    title: "Yaşam Alanı",
+    value: "YAŞAM ALANI",
+    children: ["OYUNCU MOBİLYALARI", "KOLTUKLAR"],
+  },
+  {
+    icon: "💎",
+    title: "Dijital Varlıklar",
+    value: "DİJİTAL VARLIKLAR",
+    children: ["METİN2 MARKET", "VALORANT VP"],
+  },
+  {
+    icon: "🏪",
+    title: "Oyun Marketi",
+    value: "OYUN MARKETİ",
+    children: ["STEAM", "EPIC GAMES", "OYUN KODLARI", "HEDİYE KARTLARI"],
+  },
+];
+
 const categories = [
   "TÜMÜ",
-  "SİSTEMLER",
-  "OYUN DÜNYASI",
-  "EKİPMANLAR",
-  "YAŞAM ALANI",
-  "DİJİTAL VARLIKLAR",
-  "OYUN MARKETİ",
+  ...ecosystems.map((item) => item.value),
   "DONANIMLAR",
   "PC KASA",
   "FARE",
@@ -50,15 +84,6 @@ const categories = [
   "VALORANT VP",
 ];
 
-const ecosystems = [
-  { icon: "🖥️", title: "Sistemler", value: "SİSTEMLER" },
-  { icon: "🎮", title: "Oyun Dünyası", value: "OYUN DÜNYASI" },
-  { icon: "⌨️", title: "Ekipmanlar", value: "EKİPMANLAR" },
-  { icon: "🪑", title: "Yaşam Alanı", value: "YAŞAM ALANI" },
-  { icon: "💎", title: "Dijital Varlıklar", value: "DİJİTAL VARLIKLAR" },
-  { icon: "🏪", title: "Oyun Marketi", value: "OYUN MARKETİ" },
-];
-
 function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
   return Promise.race([
     promise,
@@ -69,6 +94,29 @@ function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
       )
     ),
   ]);
+}
+
+function normalize(value?: string) {
+  return String(value || "")
+    .toLocaleLowerCase("tr-TR")
+    .trim();
+}
+
+function categoryMatches(selectedCategory: string, productCategory: string) {
+  if (selectedCategory === "TÜMÜ") return true;
+
+  const selected = normalize(selectedCategory);
+  const current = normalize(productCategory);
+
+  if (current === selected) return true;
+
+  const ecosystem = ecosystems.find(
+    (item) => normalize(item.value) === selected
+  );
+
+  if (!ecosystem) return false;
+
+  return ecosystem.children.some((child) => normalize(child) === current);
 }
 
 export default function HomePage() {
@@ -104,35 +152,39 @@ function HomePageContent() {
         limit(24)
       );
 
-      const adsQuery = query(
-        collection(db, "ads"),
-        where("status", "==", "active"),
-        limit(24)
-      );
-
-      const [productSnap, adsSnap] = await withTimeout(
-        Promise.all([getDocs(productQuery), getDocs(adsQuery)]),
-        12000
-      );
+      const productSnap = await withTimeout(getDocs(productQuery), 12000);
 
       const productData = productSnap.docs.map((item) => ({
         id: item.id,
         ...(item.data() as Omit<Product, "id">),
       }));
 
-      const adsData = adsSnap.docs.map((item) => ({
-        id: item.id,
-        ...(item.data() as Omit<AdItem, "id">),
-      }));
-
       setProducts(productData);
-      setAds(adsData);
+
+      try {
+        const adsQuery = query(
+          collection(db, "ads"),
+          where("status", "==", "active"),
+          limit(24)
+        );
+
+        const adsSnap = await withTimeout(getDocs(adsQuery), 8000);
+
+        const adsData = adsSnap.docs.map((item) => ({
+          id: item.id,
+          ...(item.data() as Omit<AdItem, "id">),
+        }));
+
+        setAds(adsData);
+      } catch (adsError) {
+        console.warn("Reklam verisi alınamadı, ilanlar gösterilmeye devam ediyor:", adsError);
+        setAds([]);
+      }
     } catch (error) {
-      console.error("Ana sayfa veri çekme hatası:", error);
+      console.error("Ana sayfa ilan verisi çekilemedi:", error);
       setProducts([]);
-      setAds([]);
       setErrorMessage(
-        "İlanlar yüklenemedi. Firebase bağlantısı, Firestore izinleri veya mobil bağlantı kontrol edilmeli."
+        "İlanlar yüklenemedi. Firestore products okuma izni veya bağlantı kontrol edilmeli."
       );
     } finally {
       setLoading(false);
@@ -149,20 +201,18 @@ function HomePageContent() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      const q = search.toLowerCase().trim();
+      const q = normalize(search);
 
-      const productCategory = String(product.category || "").toLowerCase();
-      const productTitle = String(product.title || "").toLowerCase();
-      const productSeller = String(product.seller || "").toLowerCase();
+      const productCategory = String(product.category || "");
+      const productTitle = normalize(product.title);
+      const productSeller = normalize(product.seller);
 
-      const categoryMatch =
-        selectedCategory === "TÜMÜ" ||
-        productCategory === selectedCategory.toLowerCase();
+      const categoryMatch = categoryMatches(selectedCategory, productCategory);
 
       const searchMatch =
         q === "" ||
         productTitle.includes(q) ||
-        productCategory.includes(q) ||
+        normalize(productCategory).includes(q) ||
         productSeller.includes(q);
 
       return categoryMatch && searchMatch;
@@ -188,36 +238,60 @@ function HomePageContent() {
 
             <small>EKOSİSTEMLER</small>
 
-            {categories.map((category) => (
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("TÜMÜ")}
+              className={
+                selectedCategory === "TÜMÜ"
+                  ? "gc-category selected"
+                  : "gc-category"
+              }
+            >
+              TÜMÜ
+            </button>
+
+            {ecosystems.map((ecosystem) => (
               <button
-                key={category}
+                key={ecosystem.value}
                 type="button"
-                onClick={() => setSelectedCategory(category)}
+                onClick={() => setSelectedCategory(ecosystem.value)}
                 className={
-                  selectedCategory === category
+                  selectedCategory === ecosystem.value
                     ? "gc-category selected"
                     : "gc-category"
                 }
               >
-                {category}
+                {ecosystem.icon} {ecosystem.title}
               </button>
             ))}
+
+            <small>ALT KATEGORİLER</small>
+
+            {categories
+              .filter(
+                (category) =>
+                  category !== "TÜMÜ" &&
+                  !ecosystems.some((eco) => eco.value === category)
+              )
+              .map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setSelectedCategory(category)}
+                  className={
+                    selectedCategory === category
+                      ? "gc-category selected"
+                      : "gc-category"
+                  }
+                >
+                  {category}
+                </button>
+              ))}
           </div>
         </aside>
 
         <section className="gc-content">
           <section className="gc-mobile-ecosystems">
-            <div
-  style={{
-    background: "red",
-    color: "white",
-    padding: "20px",
-    fontSize: "30px",
-    fontWeight: "bold",
-  }}
->
-  MOBİL TEST KUTUSU
-</div>
             <div className="gc-mobile-section-label">EKOSİSTEMLER</div>
 
             <div className="gc-mobile-ecosystem-grid">
@@ -280,6 +354,27 @@ function HomePageContent() {
             <div className="gc-section-head">
               <div>
                 <div className="gc-section-title">AKTİF İLANLAR</div>
+
+                {selectedCategory !== "TÜMÜ" && (
+                  <p style={{ color: "#94a3b8", marginTop: 8 }}>
+                    Filtre:{" "}
+                    <b style={{ color: "#ffd400" }}>{selectedCategory}</b>{" "}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategory("TÜMÜ")}
+                      style={{
+                        marginLeft: 12,
+                        color: "#ffd400",
+                        fontWeight: 900,
+                        background: "transparent",
+                        border: 0,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Temizle
+                    </button>
+                  </p>
+                )}
 
                 {search && (
                   <p style={{ color: "#94a3b8", marginTop: 8 }}>
