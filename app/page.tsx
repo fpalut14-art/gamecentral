@@ -84,17 +84,6 @@ const categories = [
   "VALORANT VP",
 ];
 
-function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("Firebase sorgusu zaman aşımına uğradı.")),
-        ms
-      )
-    ),
-  ]);
-}
 
 function normalize(value?: string) {
   return String(value || "")
@@ -152,7 +141,7 @@ function HomePageContent() {
         limit(24)
       );
 
-      const productSnap = await withTimeout(getDocs(productQuery), 12000);
+      const productSnap = await getDocs(productQuery);
 
       const productData = productSnap.docs.map((item) => ({
         id: item.id,
@@ -168,7 +157,7 @@ function HomePageContent() {
           limit(24)
         );
 
-        const adsSnap = await withTimeout(getDocs(adsQuery), 8000);
+        const adsSnap = await getDocs(adsQuery);
 
         const adsData = adsSnap.docs.map((item) => ({
           id: item.id,
