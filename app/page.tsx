@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { collection, getDocs, limit, query, where } from "firebase/firestore";
+import { collection, getDocs, limit, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import ListingModal from "@/components/ListingModal";
 import "./home.css";
@@ -87,6 +87,11 @@ function normalize(value?: string) {
   return String(value || "").toLocaleLowerCase("tr-TR").trim();
 }
 
+function isActiveStatus(status?: string) {
+  const value = normalize(status);
+  return value === "active" || value === "aktif";
+}
+
 function categoryMatches(selectedCategory: string, productCategory: string) {
   if (selectedCategory === "TÜMÜ") return true;
 
@@ -113,6 +118,36 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string) {
   ]);
 }
 
+function mapProduct(id: string, data: any): Product {
+  return {
+    id,
+    title: data.title || data["başlık"] || data["baslik"],
+    price: Number(data.price ?? data["fiyat"] ?? 0),
+    category: data.category || data["kategori"],
+    status: data.status || data["durum"],
+    seller: data.seller || data["satıcı"] || data["satici"],
+    sellerId:
+      data.sellerId ||
+      data["satıcı kimliği"] ||
+      data["satici kimligi"] ||
+      data["sellerUid"],
+    imageUrl: data.imageUrl || data["görsel"] || data["gorsel"],
+    imageBase64: data.imageBase64 || data["imageBase64"],
+    description: data.description || data["açıklama"] || data["aciklama"],
+  };
+}
+
+function mapAd(id: string, data: any): AdItem {
+  return {
+    id,
+    brand: data.brand || data["marka"],
+    title: data.title || data["başlık"] || data["baslik"],
+    slot: data.slot || data["alan"],
+    link: data.link || data["bağlantı"] || data["baglanti"],
+    status: data.status || data["durum"],
+  };
+}
+
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [ads, setAds] = useState<AdItem[]>([]);
@@ -129,28 +164,21 @@ export default function HomePage() {
       setLoading(true);
       setErrorMessage("");
 
-      const productQuery = query(
-        collection(db, "products"),
-        where("status", "==", "active"),
-        limit(48)
-      );
-
+      const productQuery = query(collection(db, "products"), limit(48));
       const productSnap = await withTimeout(
         getDocs(productQuery),
         10000,
         "Firestore products sorgusu 10 saniyede cevap vermedi."
       );
 
-      const productData = productSnap.docs.map((item) => ({
-        id: item.id,
-        ...(item.data() as Omit<Product, "id">),
-      }));
+      const productData = productSnap.docs
+        .map((item) => mapProduct(item.id, item.data()))
+        .filter((product) => isActiveStatus(product.status));
 
       setProducts(productData);
     } catch (error: any) {
       console.error("Ana sayfa ilan verisi çekilemedi:", error);
       setProducts([]);
-
       setErrorMessage(
         "İlanlar yüklenemedi: " +
           (error?.code || error?.message || "Bilinmeyen hata")
@@ -160,22 +188,16 @@ export default function HomePage() {
     }
 
     try {
-      const adsQuery = query(
-        collection(db, "ads"),
-        where("status", "==", "active"),
-        limit(24)
-      );
-
+      const adsQuery = query(collection(db, "ads"), limit(24));
       const adsSnap = await withTimeout(
         getDocs(adsQuery),
         8000,
         "Firestore ads sorgusu 8 saniyede cevap vermedi."
       );
 
-      const adsData = adsSnap.docs.map((item) => ({
-        id: item.id,
-        ...(item.data() as Omit<AdItem, "id">),
-      }));
+      const adsData = adsSnap.docs
+        .map((item) => mapAd(item.id, item.data()))
+        .filter((ad) => isActiveStatus(ad.status));
 
       setAds(adsData);
     } catch (adsError) {
@@ -381,7 +403,11 @@ export default function HomePage() {
                 )}
               </div>
 
-              <button type="button" onClick={loadHomeData} className="gc-refresh">
+              <button
+                type="button"
+                onClick={loadHomeData}
+                className="gc-refresh"
+              >
                 ↻ YENİLE
               </button>
             </div>
