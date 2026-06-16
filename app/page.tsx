@@ -110,12 +110,13 @@ function categoryMatches(selectedCategory: string, productCategory: string) {
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string) {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(message)), ms)
-    ),
-  ]);
+  let timer: ReturnType<typeof setTimeout>;
+
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 function mapProduct(id: string, data: any): Product {
@@ -155,6 +156,7 @@ export default function HomePage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [debugMessage, setDebugMessage] = useState("Başlatılıyor...");
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -163,32 +165,52 @@ export default function HomePage() {
     try {
       setLoading(true);
       setErrorMessage("");
+      setDebugMessage("PRODUCTS SORGUSU BAŞLADI");
 
       const productQuery = query(collection(db, "products"), limit(48));
+
       const productSnap = await withTimeout(
         getDocs(productQuery),
         10000,
         "Firestore products sorgusu 10 saniyede cevap vermedi."
       );
 
-      const productData = productSnap.docs
-        .map((item) => mapProduct(item.id, item.data()))
-        .filter((product) => isActiveStatus(product.status));
+      setDebugMessage(`PRODUCTS OK: ${productSnap.size} kayıt geldi.`);
 
-      setProducts(productData);
+      const mappedProducts = productSnap.docs.map((item) =>
+        mapProduct(item.id, item.data())
+      );
+
+      const activeProducts = mappedProducts.filter((product) =>
+        isActiveStatus(product.status)
+      );
+
+      setDebugMessage(
+        `PRODUCTS OK: ${mappedProducts.length} kayıt geldi, ${activeProducts.length} aktif ilan bulundu.`
+      );
+
+      setProducts(activeProducts);
     } catch (error: any) {
       console.error("Ana sayfa ilan verisi çekilemedi:", error);
       setProducts([]);
-      setErrorMessage(
-        "İlanlar yüklenemedi: " +
-          (error?.code || error?.message || "Bilinmeyen hata")
-      );
+
+      const message =
+        error?.code ||
+        error?.message ||
+        JSON.stringify(error) ||
+        "Bilinmeyen hata";
+
+      setErrorMessage("MOBİL DEBUG HATA: " + message);
+      setDebugMessage("PRODUCTS ERROR: " + message);
     } finally {
       setLoading(false);
     }
 
     try {
+      setDebugMessage((prev) => prev + " | ADS SORGUSU BAŞLADI");
+
       const adsQuery = query(collection(db, "ads"), limit(24));
+
       const adsSnap = await withTimeout(
         getDocs(adsQuery),
         8000,
@@ -200,7 +222,7 @@ export default function HomePage() {
         .filter((ad) => isActiveStatus(ad.status));
 
       setAds(adsData);
-    } catch (adsError) {
+    } catch (adsError: any) {
       console.warn("Reklamlar alınamadı:", adsError);
       setAds([]);
     }
@@ -361,6 +383,10 @@ export default function HomePage() {
             <div className="gc-section-head">
               <div>
                 <div className="gc-section-title">AKTİF İLANLAR</div>
+
+                <p style={{ color: "#94a3b8", marginTop: 8 }}>
+                  Debug: <b style={{ color: "#ffd400" }}>{debugMessage}</b>
+                </p>
 
                 <div style={{ marginTop: 10 }}>
                   <input
