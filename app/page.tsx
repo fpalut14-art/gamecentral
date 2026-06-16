@@ -31,42 +31,12 @@ type AdItem = {
 };
 
 const ecosystems = [
-  {
-    icon: "🖥️",
-    title: "Sistemler",
-    value: "SİSTEMLER",
-    children: ["DONANIMLAR", "PC KASA", "MONSTER SERİSİ"],
-  },
-  {
-    icon: "🎮",
-    title: "Oyun Dünyası",
-    value: "OYUN DÜNYASI",
-    children: ["KONSOLLAR", "PLAYSTATION", "XBOX", "NINTENDO"],
-  },
-  {
-    icon: "⌨️",
-    title: "Ekipmanlar",
-    value: "EKİPMANLAR",
-    children: ["FARE", "KLAVYE", "KULAKLIK"],
-  },
-  {
-    icon: "🪑",
-    title: "Yaşam Alanı",
-    value: "YAŞAM ALANI",
-    children: ["OYUNCU MOBİLYALARI", "KOLTUKLAR"],
-  },
-  {
-    icon: "💎",
-    title: "Dijital Varlıklar",
-    value: "DİJİTAL VARLIKLAR",
-    children: ["METİN2 MARKET", "VALORANT VP"],
-  },
-  {
-    icon: "🏪",
-    title: "Oyun Marketi",
-    value: "OYUN MARKETİ",
-    children: ["STEAM", "EPIC GAMES", "OYUN KODLARI", "HEDİYE KARTLARI"],
-  },
+  { icon: "🖥️", title: "Sistemler", value: "SİSTEMLER", children: ["DONANIMLAR", "PC KASA", "MONSTER SERİSİ"] },
+  { icon: "🎮", title: "Oyun Dünyası", value: "OYUN DÜNYASI", children: ["KONSOLLAR", "PLAYSTATION", "XBOX", "NINTENDO"] },
+  { icon: "⌨️", title: "Ekipmanlar", value: "EKİPMANLAR", children: ["FARE", "KLAVYE", "KULAKLIK"] },
+  { icon: "🪑", title: "Yaşam Alanı", value: "YAŞAM ALANI", children: ["OYUNCU MOBİLYALARI", "KOLTUKLAR"] },
+  { icon: "💎", title: "Dijital Varlıklar", value: "DİJİTAL VARLIKLAR", children: ["METİN2 MARKET", "VALORANT VP"] },
+  { icon: "🏪", title: "Oyun Marketi", value: "OYUN MARKETİ", children: ["STEAM", "EPIC GAMES", "OYUN KODLARI", "HEDİYE KARTLARI"] },
 ];
 
 const categories = [
@@ -84,11 +54,8 @@ const categories = [
   "VALORANT VP",
 ];
 
-
 function normalize(value?: string) {
-  return String(value || "")
-    .toLocaleLowerCase("tr-TR")
-    .trim();
+  return String(value || "").toLocaleLowerCase("tr-TR").trim();
 }
 
 function categoryMatches(selectedCategory: string, productCategory: string) {
@@ -99,10 +66,7 @@ function categoryMatches(selectedCategory: string, productCategory: string) {
 
   if (current === selected) return true;
 
-  const ecosystem = ecosystems.find(
-    (item) => normalize(item.value) === selected
-  );
-
+  const ecosystem = ecosystems.find((item) => normalize(item.value) === selected);
   if (!ecosystem) return false;
 
   return ecosystem.children.some((child) => normalize(child) === current);
@@ -138,17 +102,17 @@ function HomePageContent() {
       const productQuery = query(
         collection(db, "products"),
         where("status", "==", "active"),
-        limit(24)
+        limit(48)
       );
 
       const productSnap = await getDocs(productQuery);
 
-      const productData = productSnap.docs.map((item) => ({
-        id: item.id,
-        ...(item.data() as Omit<Product, "id">),
-      }));
-
-      setProducts(productData);
+      setProducts(
+        productSnap.docs.map((item) => ({
+          id: item.id,
+          ...(item.data() as Omit<Product, "id">),
+        }))
+      );
 
       try {
         const adsQuery = query(
@@ -159,22 +123,19 @@ function HomePageContent() {
 
         const adsSnap = await getDocs(adsQuery);
 
-        const adsData = adsSnap.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<AdItem, "id">),
-        }));
-
-        setAds(adsData);
-      } catch (adsError) {
-        console.warn("Reklam verisi alınamadı, ilanlar gösterilmeye devam ediyor:", adsError);
+        setAds(
+          adsSnap.docs.map((item) => ({
+            id: item.id,
+            ...(item.data() as Omit<AdItem, "id">),
+          }))
+        );
+      } catch {
         setAds([]);
       }
     } catch (error) {
       console.error("Ana sayfa ilan verisi çekilemedi:", error);
       setProducts([]);
-      setErrorMessage(
-        "İlanlar yüklenemedi. Firestore products okuma izni veya bağlantı kontrol edilmeli."
-      );
+      setErrorMessage("İlanlar yüklenemedi. Firestore products okuma izni veya bağlantı kontrol edilmeli.");
     } finally {
       setLoading(false);
     }
@@ -192,17 +153,16 @@ function HomePageContent() {
     return products.filter((product) => {
       const q = normalize(search);
 
-      const productCategory = String(product.category || "");
-      const productTitle = normalize(product.title);
-      const productSeller = normalize(product.seller);
-
-      const categoryMatch = categoryMatches(selectedCategory, productCategory);
+      const categoryMatch = categoryMatches(
+        selectedCategory,
+        String(product.category || "")
+      );
 
       const searchMatch =
         q === "" ||
-        productTitle.includes(q) ||
-        normalize(productCategory).includes(q) ||
-        productSeller.includes(q);
+        normalize(product.title).includes(q) ||
+        normalize(product.category).includes(q) ||
+        normalize(product.seller).includes(q);
 
       return categoryMatch && searchMatch;
     });
@@ -230,11 +190,7 @@ function HomePageContent() {
             <button
               type="button"
               onClick={() => setSelectedCategory("TÜMÜ")}
-              className={
-                selectedCategory === "TÜMÜ"
-                  ? "gc-category selected"
-                  : "gc-category"
-              }
+              className={selectedCategory === "TÜMÜ" ? "gc-category selected" : "gc-category"}
             >
               TÜMÜ
             </button>
@@ -244,11 +200,7 @@ function HomePageContent() {
                 key={ecosystem.value}
                 type="button"
                 onClick={() => setSelectedCategory(ecosystem.value)}
-                className={
-                  selectedCategory === ecosystem.value
-                    ? "gc-category selected"
-                    : "gc-category"
-                }
+                className={selectedCategory === ecosystem.value ? "gc-category selected" : "gc-category"}
               >
                 {ecosystem.icon} {ecosystem.title}
               </button>
@@ -267,11 +219,7 @@ function HomePageContent() {
                   key={category}
                   type="button"
                   onClick={() => setSelectedCategory(category)}
-                  className={
-                    selectedCategory === category
-                      ? "gc-category selected"
-                      : "gc-category"
-                  }
+                  className={selectedCategory === category ? "gc-category selected" : "gc-category"}
                 >
                   {category}
                 </button>
@@ -289,11 +237,7 @@ function HomePageContent() {
                   key={item.value}
                   type="button"
                   onClick={() => setSelectedCategory(item.value)}
-                  className={
-                    selectedCategory === item.value
-                      ? "gc-mobile-ecosystem-card selected"
-                      : "gc-mobile-ecosystem-card"
-                  }
+                  className={selectedCategory === item.value ? "gc-mobile-ecosystem-card selected" : "gc-mobile-ecosystem-card"}
                 >
                   <span>{item.icon}</span>
                   <strong>{item.title}</strong>
@@ -306,15 +250,12 @@ function HomePageContent() {
             <Link href={premiumAd?.link || "/ad-request"} className="gc-hero">
               <div className="gc-hero-overlay">
                 <span className="gc-badge">PREMIUM SLOT</span>
-
                 <h1>{premiumAd?.title || "PREMİUM REKLAM ALANI"}</h1>
-
                 <p>
                   {premiumAd?.brand
                     ? `${premiumAd.brand} sponsorlu reklam alanı.`
                     : "Markanı GameCentral vitrininde göster."}
                 </p>
-
                 <span className="gc-hero-btn">
                   {premiumAd ? "REKLAMI GÖR" : "REKLAM BAŞVURUSU YAP"}
                 </span>
@@ -326,11 +267,7 @@ function HomePageContent() {
                 const ad = rightAds[i];
 
                 return (
-                  <Link
-                    key={i}
-                    href={ad?.link || "/ad-request"}
-                    className="gc-right-ad"
-                  >
+                  <Link key={i} href={ad?.link || "/ad-request"} className="gc-right-ad">
                     <strong>{ad?.title || "+ REKLAM VER"}</strong>
                     <span>{ad?.brand || "Sağ Banner Slot"}</span>
                   </Link>
@@ -346,8 +283,7 @@ function HomePageContent() {
 
                 {selectedCategory !== "TÜMÜ" && (
                   <p style={{ color: "#94a3b8", marginTop: 8 }}>
-                    Filtre:{" "}
-                    <b style={{ color: "#ffd400" }}>{selectedCategory}</b>{" "}
+                    Filtre: <b style={{ color: "#ffd400" }}>{selectedCategory}</b>
                     <button
                       type="button"
                       onClick={() => setSelectedCategory("TÜMÜ")}
@@ -367,17 +303,8 @@ function HomePageContent() {
 
                 {search && (
                   <p style={{ color: "#94a3b8", marginTop: 8 }}>
-                    Arama sonucu:{" "}
-                    <b style={{ color: "#ffd400" }}>{search}</b>{" "}
-                    <Link
-                      href="/"
-                      style={{
-                        marginLeft: 12,
-                        color: "#ffd400",
-                        fontWeight: 900,
-                        textDecoration: "none",
-                      }}
-                    >
+                    Arama sonucu: <b style={{ color: "#ffd400" }}>{search}</b>
+                    <Link href="/" style={{ marginLeft: 12, color: "#ffd400", fontWeight: 900 }}>
                       Temizle
                     </Link>
                   </p>
@@ -391,9 +318,7 @@ function HomePageContent() {
 
             {loading && <div className="gc-empty">İlanlar yükleniyor...</div>}
 
-            {!loading && errorMessage && (
-              <div className="gc-empty">{errorMessage}</div>
-            )}
+            {!loading && errorMessage && <div className="gc-empty">{errorMessage}</div>}
 
             {!loading && !errorMessage && filteredProducts.length === 0 && (
               <div className="gc-empty">Aktif ilan bulunamadı.</div>
@@ -402,8 +327,7 @@ function HomePageContent() {
             {!loading && !errorMessage && filteredProducts.length > 0 && (
               <div className="gc-product-grid">
                 {filteredProducts.map((product) => {
-                  const productImage =
-                    product.imageUrl || product.imageBase64 || "";
+                  const productImage = product.imageUrl || product.imageBase64 || "";
 
                   return (
                     <article className="gc-card" key={product.id}>
@@ -454,11 +378,7 @@ function HomePageContent() {
                 const ad = partnerAds[i];
 
                 return (
-                  <Link
-                    href={ad?.link || "/ad-request"}
-                    className="gc-slot"
-                    key={i}
-                  >
+                  <Link href={ad?.link || "/ad-request"} className="gc-slot" key={i}>
                     <strong>{ad?.title || "+"}</strong>
                     <span>{ad?.brand || "REKLAM VER"}</span>
                     <small>SLOT #{String(i + 1).padStart(2, "0")}</small>
