@@ -10,10 +10,17 @@ export default function Page() {
   }, []);
 
   return (
-    <main style={{ padding: 30, background: "#050505", color: "white", minHeight: "100vh" }}>
+    <main style={{ padding: 30, minHeight: "100vh", background: "#050505", color: "white" }}>
       <h1>GAMECENTRAL TEST</h1>
       <p>{status}</p>
-      <button onClick={() => setStatus("BUTON ÇALIŞTI")}>TEST</button>
+
+      <button
+        type="button"
+        onClick={() => setStatus("BUTON ÇALIŞTI")}
+        style={{ width: "100%", height: 60, fontSize: 20 }}
+      >
+        TEST
+      </button>
     </main>
   );
 }
