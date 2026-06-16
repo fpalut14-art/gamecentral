@@ -1,8 +1,7 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import ListingModal from "@/components/ListingModal";
@@ -31,12 +30,42 @@ type AdItem = {
 };
 
 const ecosystems = [
-  { icon: "🖥️", title: "Sistemler", value: "SİSTEMLER", children: ["DONANIMLAR", "PC KASA", "MONSTER SERİSİ"] },
-  { icon: "🎮", title: "Oyun Dünyası", value: "OYUN DÜNYASI", children: ["KONSOLLAR", "PLAYSTATION", "XBOX", "NINTENDO"] },
-  { icon: "⌨️", title: "Ekipmanlar", value: "EKİPMANLAR", children: ["FARE", "KLAVYE", "KULAKLIK"] },
-  { icon: "🪑", title: "Yaşam Alanı", value: "YAŞAM ALANI", children: ["OYUNCU MOBİLYALARI", "KOLTUKLAR"] },
-  { icon: "💎", title: "Dijital Varlıklar", value: "DİJİTAL VARLIKLAR", children: ["METİN2 MARKET", "VALORANT VP"] },
-  { icon: "🏪", title: "Oyun Marketi", value: "OYUN MARKETİ", children: ["STEAM", "EPIC GAMES", "OYUN KODLARI", "HEDİYE KARTLARI"] },
+  {
+    icon: "🖥️",
+    title: "Sistemler",
+    value: "SİSTEMLER",
+    children: ["DONANIMLAR", "PC KASA", "MONSTER SERİSİ"],
+  },
+  {
+    icon: "🎮",
+    title: "Oyun Dünyası",
+    value: "OYUN DÜNYASI",
+    children: ["KONSOLLAR", "PLAYSTATION", "XBOX", "NINTENDO"],
+  },
+  {
+    icon: "⌨️",
+    title: "Ekipmanlar",
+    value: "EKİPMANLAR",
+    children: ["FARE", "KLAVYE", "KULAKLIK"],
+  },
+  {
+    icon: "🪑",
+    title: "Yaşam Alanı",
+    value: "YAŞAM ALANI",
+    children: ["OYUNCU MOBİLYALARI", "KOLTUKLAR"],
+  },
+  {
+    icon: "💎",
+    title: "Dijital Varlıklar",
+    value: "DİJİTAL VARLIKLAR",
+    children: ["METİN2 MARKET", "VALORANT VP"],
+  },
+  {
+    icon: "🏪",
+    title: "Oyun Marketi",
+    value: "OYUN MARKETİ",
+    children: ["STEAM", "EPIC GAMES", "OYUN KODLARI", "HEDİYE KARTLARI"],
+  },
 ];
 
 const categories = [
@@ -66,28 +95,29 @@ function categoryMatches(selectedCategory: string, productCategory: string) {
 
   if (current === selected) return true;
 
-  const ecosystem = ecosystems.find((item) => normalize(item.value) === selected);
+  const ecosystem = ecosystems.find(
+    (item) => normalize(item.value) === selected
+  );
+
   if (!ecosystem) return false;
 
   return ecosystem.children.some((child) => normalize(child) === current);
 }
 
-export default function HomePage() {
-  return (
-    <Suspense fallback={<main className="gc-page">Yükleniyor...</main>}>
-      <HomePageContent />
-    </Suspense>
-  );
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string) {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(message)), ms)
+    ),
+  ]);
 }
 
-function HomePageContent() {
-  const searchParams = useSearchParams();
-  const urlQuery = searchParams.get("q") || "";
-
+export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [ads, setAds] = useState<AdItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("TÜMÜ");
-  const [search, setSearch] = useState(urlQuery);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -105,49 +135,58 @@ function HomePageContent() {
         limit(48)
       );
 
-      const productSnap = await getDocs(productQuery);
-
-      setProducts(
-        productSnap.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<Product, "id">),
-        }))
+      const productSnap = await withTimeout(
+        getDocs(productQuery),
+        10000,
+        "Firestore products sorgusu 10 saniyede cevap vermedi."
       );
 
-      try {
-        const adsQuery = query(
-          collection(db, "ads"),
-          where("status", "==", "active"),
-          limit(24)
-        );
+      const productData = productSnap.docs.map((item) => ({
+        id: item.id,
+        ...(item.data() as Omit<Product, "id">),
+      }));
 
-        const adsSnap = await getDocs(adsQuery);
-
-        setAds(
-          adsSnap.docs.map((item) => ({
-            id: item.id,
-            ...(item.data() as Omit<AdItem, "id">),
-          }))
-        );
-      } catch {
-        setAds([]);
-      }
-    } catch (error) {
+      setProducts(productData);
+    } catch (error: any) {
       console.error("Ana sayfa ilan verisi çekilemedi:", error);
       setProducts([]);
-      setErrorMessage("İlanlar yüklenemedi. Firestore products okuma izni veya bağlantı kontrol edilmeli.");
+
+      setErrorMessage(
+        "İlanlar yüklenemedi: " +
+          (error?.code || error?.message || "Bilinmeyen hata")
+      );
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const adsQuery = query(
+        collection(db, "ads"),
+        where("status", "==", "active"),
+        limit(24)
+      );
+
+      const adsSnap = await withTimeout(
+        getDocs(adsQuery),
+        8000,
+        "Firestore ads sorgusu 8 saniyede cevap vermedi."
+      );
+
+      const adsData = adsSnap.docs.map((item) => ({
+        id: item.id,
+        ...(item.data() as Omit<AdItem, "id">),
+      }));
+
+      setAds(adsData);
+    } catch (adsError) {
+      console.warn("Reklamlar alınamadı:", adsError);
+      setAds([]);
     }
   }
 
   useEffect(() => {
     loadHomeData();
   }, []);
-
-  useEffect(() => {
-    setSearch(urlQuery);
-  }, [urlQuery]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -190,7 +229,11 @@ function HomePageContent() {
             <button
               type="button"
               onClick={() => setSelectedCategory("TÜMÜ")}
-              className={selectedCategory === "TÜMÜ" ? "gc-category selected" : "gc-category"}
+              className={
+                selectedCategory === "TÜMÜ"
+                  ? "gc-category selected"
+                  : "gc-category"
+              }
             >
               TÜMÜ
             </button>
@@ -200,7 +243,11 @@ function HomePageContent() {
                 key={ecosystem.value}
                 type="button"
                 onClick={() => setSelectedCategory(ecosystem.value)}
-                className={selectedCategory === ecosystem.value ? "gc-category selected" : "gc-category"}
+                className={
+                  selectedCategory === ecosystem.value
+                    ? "gc-category selected"
+                    : "gc-category"
+                }
               >
                 {ecosystem.icon} {ecosystem.title}
               </button>
@@ -219,7 +266,11 @@ function HomePageContent() {
                   key={category}
                   type="button"
                   onClick={() => setSelectedCategory(category)}
-                  className={selectedCategory === category ? "gc-category selected" : "gc-category"}
+                  className={
+                    selectedCategory === category
+                      ? "gc-category selected"
+                      : "gc-category"
+                  }
                 >
                   {category}
                 </button>
@@ -237,7 +288,11 @@ function HomePageContent() {
                   key={item.value}
                   type="button"
                   onClick={() => setSelectedCategory(item.value)}
-                  className={selectedCategory === item.value ? "gc-mobile-ecosystem-card selected" : "gc-mobile-ecosystem-card"}
+                  className={
+                    selectedCategory === item.value
+                      ? "gc-mobile-ecosystem-card selected"
+                      : "gc-mobile-ecosystem-card"
+                  }
                 >
                   <span>{item.icon}</span>
                   <strong>{item.title}</strong>
@@ -267,7 +322,11 @@ function HomePageContent() {
                 const ad = rightAds[i];
 
                 return (
-                  <Link key={i} href={ad?.link || "/ad-request"} className="gc-right-ad">
+                  <Link
+                    key={i}
+                    href={ad?.link || "/ad-request"}
+                    className="gc-right-ad"
+                  >
                     <strong>{ad?.title || "+ REKLAM VER"}</strong>
                     <span>{ad?.brand || "Sağ Banner Slot"}</span>
                   </Link>
@@ -281,9 +340,29 @@ function HomePageContent() {
               <div>
                 <div className="gc-section-title">AKTİF İLANLAR</div>
 
+                <div style={{ marginTop: 10 }}>
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="İlan ara..."
+                    style={{
+                      width: "100%",
+                      maxWidth: 360,
+                      height: 42,
+                      borderRadius: 12,
+                      border: "1px solid rgba(255,255,255,.1)",
+                      background: "#111827",
+                      color: "white",
+                      padding: "0 12px",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+
                 {selectedCategory !== "TÜMÜ" && (
                   <p style={{ color: "#94a3b8", marginTop: 8 }}>
-                    Filtre: <b style={{ color: "#ffd400" }}>{selectedCategory}</b>
+                    Filtre:{" "}
+                    <b style={{ color: "#ffd400" }}>{selectedCategory}</b>
                     <button
                       type="button"
                       onClick={() => setSelectedCategory("TÜMÜ")}
@@ -300,15 +379,6 @@ function HomePageContent() {
                     </button>
                   </p>
                 )}
-
-                {search && (
-                  <p style={{ color: "#94a3b8", marginTop: 8 }}>
-                    Arama sonucu: <b style={{ color: "#ffd400" }}>{search}</b>
-                    <Link href="/" style={{ marginLeft: 12, color: "#ffd400", fontWeight: 900 }}>
-                      Temizle
-                    </Link>
-                  </p>
-                )}
               </div>
 
               <button type="button" onClick={loadHomeData} className="gc-refresh">
@@ -318,7 +388,9 @@ function HomePageContent() {
 
             {loading && <div className="gc-empty">İlanlar yükleniyor...</div>}
 
-            {!loading && errorMessage && <div className="gc-empty">{errorMessage}</div>}
+            {!loading && errorMessage && (
+              <div className="gc-empty">{errorMessage}</div>
+            )}
 
             {!loading && !errorMessage && filteredProducts.length === 0 && (
               <div className="gc-empty">Aktif ilan bulunamadı.</div>
@@ -327,13 +399,17 @@ function HomePageContent() {
             {!loading && !errorMessage && filteredProducts.length > 0 && (
               <div className="gc-product-grid">
                 {filteredProducts.map((product) => {
-                  const productImage = product.imageUrl || product.imageBase64 || "";
+                  const productImage =
+                    product.imageUrl || product.imageBase64 || "";
 
                   return (
                     <article className="gc-card" key={product.id}>
                       <div className="gc-card-image">
                         {productImage ? (
-                          <img src={productImage} alt={product.title || "İlan"} />
+                          <img
+                            src={productImage}
+                            alt={product.title || "İlan"}
+                          />
                         ) : (
                           <span>GAMECENTRAL</span>
                         )}
@@ -378,7 +454,11 @@ function HomePageContent() {
                 const ad = partnerAds[i];
 
                 return (
-                  <Link href={ad?.link || "/ad-request"} className="gc-slot" key={i}>
+                  <Link
+                    href={ad?.link || "/ad-request"}
+                    className="gc-slot"
+                    key={i}
+                  >
                     <strong>{ad?.title || "+"}</strong>
                     <span>{ad?.brand || "REKLAM VER"}</span>
                     <small>SLOT #{String(i + 1).padStart(2, "0")}</small>
