@@ -1,10 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import FloatingSupport from "@/components/FloatingSupport";
+// import FloatingSupport from "@/components/FloatingSupport";
 import { env } from "@/lib/env";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(env.siteUrl),
@@ -73,7 +79,7 @@ export default function RootLayout({
         <Header />
         {children}
         <Footer />
-        <FloatingSupport />
+        {/* <FloatingSupport /> */}
       </body>
     </html>
   );
