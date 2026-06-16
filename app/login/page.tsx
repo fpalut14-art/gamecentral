@@ -166,6 +166,7 @@ const box: React.CSSProperties = {
   width: "100%",
   maxWidth: 460,
   maxHeight: "calc(100dvh - 36px)",
+  maxHeight: "90vh",
   overflowY: "auto",
   padding: 30,
   borderRadius: 26,
