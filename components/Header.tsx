@@ -179,7 +179,7 @@ export default function Header() {
     <>
       <DesktopHeader {...sharedProps} />
       <MobileHeader {...sharedProps} />
-      <MobileBottomActions isLoggedIn={!!user} role={profile?.role} />
+      {!isAuthPage && <MobileBottomActions isLoggedIn={!!user} role={profile?.role} />}
     </>
   );
 }

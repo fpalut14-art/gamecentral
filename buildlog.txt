@@ -1,0 +1,5 @@
+
+> gamecentral-production-base@1.0.0 build
+> next build v
+
+"next v" does not exist. Did you mean "next dev"?

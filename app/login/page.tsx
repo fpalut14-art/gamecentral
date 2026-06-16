@@ -27,8 +27,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleLogin(e?: React.FormEvent<HTMLFormElement>) {
+    if (e) e.preventDefault();
 
     try {
       setLoading(true);
@@ -92,34 +92,10 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("LOGIN ERROR:", error);
 
-      if (error?.code === "auth/invalid-credential") {
-        setErrorMessage("E-posta veya şifre hatalı.");
-        return;
-      }
+      const code = error?.code || "KOD YOK";
+      const message = error?.message || "MESAJ YOK";
 
-      if (error?.code === "auth/user-not-found") {
-        setErrorMessage("Bu e-posta ile kayıtlı kullanıcı yok.");
-        return;
-      }
-
-      if (error?.code === "auth/wrong-password") {
-        setErrorMessage("Şifre hatalı.");
-        return;
-      }
-
-      if (
-        error?.code === "permission-denied" ||
-        error?.code === "firestore/permission-denied"
-      ) {
-        setErrorMessage(
-          "Giriş başarılı fakat kullanıcı profili okunamadı. Firestore Rules users iznini kontrol et."
-        );
-        return;
-      }
-
-      setErrorMessage(
-        `Giriş başarısız: ${error?.code || error?.message || "Bilinmeyen hata"}`
-      );
+      setErrorMessage(`KOD: ${code} | MESAJ: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -156,7 +132,11 @@ export default function LoginPage() {
             autoComplete="current-password"
           />
 
-          <button type="submit" style={button} disabled={loading}>
+          <button
+            type="submit"
+            style={button}
+            disabled={loading}
+          >
             {loading ? "GİRİŞ YAPILIYOR..." : "GİRİŞ YAP"}
           </button>
         </form>
@@ -172,11 +152,12 @@ export default function LoginPage() {
 }
 
 const page: React.CSSProperties = {
-  minHeight: "100vh",
+  minHeight: "100dvh",
   background:
     "radial-gradient(circle at top left, rgba(255,212,0,0.14), transparent 28%), #050505",
-  display: "grid",
-  placeItems: "center",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   padding: 18,
   color: "white",
 };
@@ -184,6 +165,8 @@ const page: React.CSSProperties = {
 const box: React.CSSProperties = {
   width: "100%",
   maxWidth: 460,
+  maxHeight: "calc(100dvh - 36px)",
+  overflowY: "auto",
   padding: 30,
   borderRadius: 26,
   background: "linear-gradient(180deg, #0f172a, #070a12)",
@@ -226,7 +209,7 @@ const input: React.CSSProperties = {
   padding: "0 16px",
   color: "white",
   outline: "none",
-  fontSize: 15,
+  fontSize: 16,
 };
 
 const button: React.CSSProperties = {
