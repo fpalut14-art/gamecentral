@@ -3,6 +3,21 @@
 import React from "react";
 import Link from "next/link";
 import "./Header.css";
+export type UserProfile = {
+  email?: string;
+  name?: string;
+  role?: "admin" | "seller" | "user";
+};
+
+export type NotificationItem = {
+  id: string;
+  userId?: string;
+  title?: string;
+  message?: string;
+  read?: boolean;
+  type?: string;
+  createdAt?: string;
+};
 
 export default function Header() {
   return (
