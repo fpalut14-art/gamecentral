@@ -27,8 +27,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  async function handleLogin(e?: React.FormEvent<HTMLFormElement>) {
-    if (e) e.preventDefault();
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (loading) return;
 
     try {
       setLoading(true);
@@ -44,23 +46,48 @@ export default function LoginPage() {
 
       const uid = result.user.uid;
       const userRef = doc(db, "users", uid);
-      const userSnap = await getDoc(userRef);
 
-      let userData: AppUser;
+      let userData: AppUser = {
+        email: result.user.email || cleanEmail,
+        role: "user",
+        sellerStatus: "none",
+        banned: false,
+      };
 
-      if (userSnap.exists()) {
-        userData = userSnap.data() as AppUser;
-      } else {
-        userData = {
-          email: result.user.email || cleanEmail,
-          role: "user",
-          sellerStatus: "none",
-          banned: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
+      try {
+        const userSnap = await getDoc(userRef);
 
-        await setDoc(userRef, userData, { merge: true });
+        if (userSnap.exists()) {
+          userData = {
+            ...userData,
+            ...(userSnap.data() as AppUser),
+          };
+        } else {
+          await setDoc(
+            userRef,
+            {
+              email: result.user.email || cleanEmail,
+              role: "user",
+              sellerStatus: "none",
+              banned: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+        }
+
+        await setDoc(
+          userRef,
+          {
+            email: result.user.email || cleanEmail,
+            lastLoginAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      } catch (profileError) {
+        console.warn("Profil okunamadı ama Auth başarılı:", profileError);
       }
 
       if (userData.banned === true) {
@@ -68,27 +95,17 @@ export default function LoginPage() {
         return;
       }
 
-      await setDoc(
-        userRef,
-        {
-          email: result.user.email || cleanEmail,
-          lastLoginAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-
       if (userData.role === "admin") {
-        router.push("/admin");
+        router.replace("/admin");
         return;
       }
 
       if (userData.role === "seller") {
-        router.push("/seller");
+        router.replace("/seller");
         return;
       }
 
-      router.push("/profile");
+      router.replace("/profile");
     } catch (error: any) {
       console.error("LOGIN ERROR:", error);
 
@@ -132,11 +149,7 @@ export default function LoginPage() {
             autoComplete="current-password"
           />
 
-          <button
-            type="submit"
-            style={button}
-            disabled={loading}
-          >
+          <button type="submit" style={button} disabled={loading}>
             {loading ? "GİRİŞ YAPILIYOR..." : "GİRİŞ YAP"}
           </button>
         </form>
@@ -165,8 +178,6 @@ const page: React.CSSProperties = {
 const box: React.CSSProperties = {
   width: "100%",
   maxWidth: 460,
-  maxHeight: "calc(100dvh - 36px)",
-  maxHeight: "90vh",
   overflowY: "auto",
   padding: 30,
   borderRadius: 26,
